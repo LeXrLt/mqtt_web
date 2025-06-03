@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>告警推送</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>告警推送</h1>
+
+        <div class="form-group">
+            <label for="registrationCode">注册编码:</label>
+            <input type="text" id="registrationCode" name="registrationCode" placeholder="请输入大约20位文本">
+            <div class="error-message" id="registrationCodeError"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="alarmCode">告警编码:</label>
+            <select id="alarmCode" name="alarmCode">
+                <!-- Options will be populated by JavaScript -->
+            </select>
+            <div class="error-message" id="alarmCodeError"></div> <!-- Though not strictly required by specs, good for future use -->
+        </div>
+
+        <button id="pushButton">推送</button>
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+</html>
