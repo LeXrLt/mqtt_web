@@ -93,3 +93,43 @@ button:hover {
         font-size: 15px;
     }
 }
+
+/* Toast Notification Styles */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    border-radius: 25px; /* Pill shape */
+    background-color: #333; /* Default background */
+    color: white;
+    font-size: 14px;
+    z-index: 1000;
+    opacity: 0; /* Start hidden */
+    transition: opacity 0.5s ease-in-out, bottom 0.5s ease-in-out;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    text-align: center;
+    min-width: 200px; /* Minimum width */
+    max-width: 80%; /* Maximum width */
+}
+
+.toast.success {
+    background-color: #28a745; /* Green for success */
+    color: white;
+}
+
+.toast.error {
+    background-color: #dc3545; /* Red for error */
+    color: white;
+}
+
+.toast.info {
+    background-color: #17a2b8; /* Blue for info */
+    color: white;
+}
+
+/* For the fade-in effect, opacity is changed in JS */
+/* The initial opacity is 0, JS changes to 1 */
+
+/* No specific fade-out class needed if JS handles opacity change directly for fade-out */

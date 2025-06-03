@@ -4,6 +4,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const pushButton = document.getElementById('pushButton');
     const registrationCodeError = document.getElementById('registrationCodeError');
 
+    function showToast(message, type = 'info') { // type can be 'info', 'success', 'error'
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`; // e.g., toast success, toast error
+        toast.textContent = message;
+
+        document.body.appendChild(toast);
+
+        // Trigger reflow to enable animation
+        toast.offsetHeight;
+
+        // Make it visible and start fade out timer
+        toast.style.opacity = 1;
+
+        setTimeout(() => {
+            toast.style.opacity = 0;
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 500); // Matches CSS transition time
+        }, 2500); // Toast visible for 2.5 seconds before starting fade
+    }
+
+    const REGISTRATION_CODE_KEY = 'registrationCodeCache';
+    const ALARM_CODE_KEY = 'alarmCodeCache';
+
     // Populate Alarm Code Dropdown
     const alarmOptions = [
         { text: '电动车', value: 200 },
@@ -15,6 +41,26 @@ document.addEventListener('DOMContentLoaded', () => {
         opt.textContent = option.text;
         opt.value = option.value;
         alarmCodeSelect.appendChild(opt);
+    });
+
+    // Load cached values
+    const cachedRegistrationCode = localStorage.getItem(REGISTRATION_CODE_KEY);
+    if (cachedRegistrationCode) {
+        registrationCodeInput.value = cachedRegistrationCode;
+    }
+
+    const cachedAlarmCode = localStorage.getItem(ALARM_CODE_KEY);
+    if (cachedAlarmCode) {
+        alarmCodeSelect.value = cachedAlarmCode;
+    }
+
+    // Event Listeners for caching
+    registrationCodeInput.addEventListener('input', () => {
+        localStorage.setItem(REGISTRATION_CODE_KEY, registrationCodeInput.value);
+    });
+
+    alarmCodeSelect.addEventListener('change', () => {
+        localStorage.setItem(ALARM_CODE_KEY, alarmCodeSelect.value);
     });
 
     // Event Listener for Push Button
@@ -51,29 +97,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const registerNumber = registrationCodeInput.value;
         const alarmType = alarmCodeSelect.value;
 
-        const baseUrl = 'https://mqtt-web.ti-lian.com/local/v1/media/addAlarm';
+        const baseUrl = 'https://mqtt-web.ti-lian.com/local/v1/media/addAlarm'; // Corrected URL from previous fix
         const queryParams = `?registerNumber=${encodeURIComponent(registerNumber)}&alarmType=${encodeURIComponent(alarmType)}`;
         const fullUrl = baseUrl + queryParams;
 
-        console.log('Sending request to:', fullUrl); // For debugging
+        console.log('Sending request to:', fullUrl);
 
         fetch(fullUrl)
             .then(response => {
-                if (!response.ok) {
-                    // Try to get error message from response body if possible
+                if (response.status === 200) {
+                    // No need to parse JSON for success, just check status
+                    return { success: true, status: response.status }; // Return a simple success object
+                } else {
+                    // Try to get text for error message, but don't fail if it's not there
                     return response.text().then(text => {
-                        throw new Error(`网络响应错误: ${response.status} ${response.statusText}. ${text ? 'Details: ' + text : ''}`);
+                        throw new Error(`网络响应错误: ${response.status} ${response.statusText}.${text ? '详情: ' + text : ''}`);
+                    }).catch(() => {
+                        // Fallback if response.text() itself fails or if there's no text
+                        throw new Error(`网络响应错误: ${response.status} ${response.statusText}.`);
                     });
                 }
-                return response.json(); // Or response.text() if not expecting JSON
             })
             .then(data => {
-                console.log('Success:', data);
-                alert('告警已成功推送！'); // Simple success feedback
+                // 'data' will be our { success: true } object if successful
+                if (data.success) {
+                    console.log('Success: Status 200');
+                    showToast('告警已成功推送！', 'success');
+                }
+                // No 'else' here because errors are caught in .catch
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert(`推送失败: ${error.message}`); // Simple error feedback
+                showToast(`推送失败: ${error.message}`, 'error');
             });
     }
 });
