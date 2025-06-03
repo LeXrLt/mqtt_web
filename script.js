@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const registerNumber = registrationCodeInput.value;
         const alarmType = alarmCodeSelect.value;
 
-        const baseUrl = 'https://mqtt-webi.ti-lian.com/local/v1/media/addAlarm';
+        const baseUrl = 'https://mqtt-web.ti-lian.com/local/v1/media/addAlarm';
         const queryParams = `?registerNumber=${encodeURIComponent(registerNumber)}&alarmType=${encodeURIComponent(alarmType)}`;
         const fullUrl = baseUrl + queryParams;
 
