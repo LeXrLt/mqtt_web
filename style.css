@@ -133,3 +133,55 @@ button:hover {
 /* The initial opacity is 0, JS changes to 1 */
 
 /* No specific fade-out class needed if JS handles opacity change directly for fade-out */
+
+/* Autocomplete Styles */
+.form-group {
+    position: relative; /* Ensure this is on the parent of the input and autocomplete list if not already handled */
+}
+
+#autocomplete-list {
+    position: absolute;
+    border: 1px solid #ddd;
+    border-top: none;
+    background-color: #fff;
+    z-index: 999;
+    top: 100%; /* Position it right below the input field (assuming input is the direct sibling or parent is relative) */
+    left: 0;
+    right: 0;
+    max-height: 200px; /* Limit height and allow scrolling */
+    overflow-y: auto;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: none; /* Hidden by default */
+}
+
+.autocomplete-suggestion-item {
+    padding: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    border-bottom: 1px solid #eee; /* Separator for items */
+}
+
+.autocomplete-suggestion-item:last-child {
+    border-bottom: none; /* No border for the last item */
+}
+
+.autocomplete-suggestion-item:hover {
+    background-color: #f0f0f0;
+}
+
+/* Ensure .form-group that contains the registrationCode input and autocomplete-list has position: relative.
+   If it's not guaranteed, this rule helps, but it's better to set it on the specific .form-group in HTML or a more specific selector.
+   The provided HTML modification in plan step 4 already suggests adding style="position: relative;" to the specific form-group.
+   Alternatively, if all form-groups can be relative:
+*/
+/*
+.form-group {
+    position: relative;
+}
+*/
+/* However, the HTML modification in step 4 is more targeted:
+   <div class="form-group" style="position: relative;">
+   It's generally better to modify the HTML or use a more specific class if not all form-groups need this.
+   For this subtask, we'll assume the HTML is or will be structured such that #autocomplete-list is positioned correctly relative to the input.
+   The `top: 100%` assumes the input and autocomplete list are direct children of the relatively positioned .form-group.
+*/

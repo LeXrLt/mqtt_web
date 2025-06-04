@@ -1,8 +1,89 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    const ARM_DATA_CACHE_KEY = 'armDataCache';
+    const ARM_DATA_CACHE_TIMESTAMP_KEY = 'armDataCacheTimestamp';
+    const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+    let allArms = []; // To store the fetched arm data
+
     const registrationCodeInput = document.getElementById('registrationCode');
     const alarmCodeSelect = document.getElementById('alarmCode');
     const pushButton = document.getElementById('pushButton');
     const registrationCodeError = document.getElementById('registrationCodeError');
+    const autocompleteList = document.getElementById('autocomplete-list');
+    // Ensure this element exists in index.html as per plan step 4, or create it dynamically if preferred.
+    // For this subtask, we assume it exists.
+
+
+    function displaySuggestions(suggestions) {
+        if (!autocompleteList) return; // Guard if element not found
+        autocompleteList.innerHTML = ''; // Clear previous suggestions
+
+        if (suggestions.length === 0) {
+            autocompleteList.style.display = 'none';
+            return;
+        }
+
+        suggestions.slice(0, 10).forEach(item => { // Limit to 10 suggestions
+            const suggestionItem = document.createElement('div');
+            suggestionItem.className = 'autocomplete-suggestion-item'; // For styling
+            // Format: {elevatorName}|{registerCode后四位}
+            const lastFourDigits = item.registerCode.slice(-4);
+            suggestionItem.textContent = `${item.elevatorName}|${lastFourDigits}`;
+            suggestionItem.dataset.registerCode = item.registerCode; // Store full code
+
+            suggestionItem.addEventListener('click', () => {
+                registrationCodeInput.value = item.registerCode;
+                localStorage.setItem(REGISTRATION_CODE_KEY, item.registerCode); // Explicitly save to cache
+                autocompleteList.innerHTML = '';
+                autocompleteList.style.display = 'none';
+                registrationCodeInput.focus(); // Optional: keep focus on input
+            });
+            autocompleteList.appendChild(suggestionItem);
+        });
+        autocompleteList.style.display = 'block';
+    }
+
+
+    async function fetchAndCacheArmData() {
+        const cachedData = localStorage.getItem(ARM_DATA_CACHE_KEY);
+        const cachedTimestamp = localStorage.getItem(ARM_DATA_CACHE_TIMESTAMP_KEY);
+
+        if (cachedData && cachedTimestamp && (Date.now() - parseInt(cachedTimestamp)) < CACHE_DURATION_MS) {
+            console.log('Loading arm data from cache.');
+            allArms = JSON.parse(cachedData);
+            // Potentially trigger rendering of dependent elements if any were waiting for this data
+            return Promise.resolve(); // Indicate data is ready
+        }
+
+        console.log('Fetching arm data from API...');
+        try {
+            const response = await fetch('https://mqtt-web.ti-lian.com/local/v1/arm/findArmAll');
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+            const result = await response.json(); // This API returns JSON directly according to user
+
+            if (result.code === "200" && result.data) {
+                allArms = result.data;
+                localStorage.setItem(ARM_DATA_CACHE_KEY, JSON.stringify(allArms));
+                localStorage.setItem(ARM_DATA_CACHE_TIMESTAMP_KEY, Date.now().toString());
+                console.log('Arm data fetched and cached.');
+            } else {
+                throw new Error(`API returned code ${result.code || 'unknown'} or no data: ${result.msg || 'No message'}`);
+            }
+        } catch (error) {
+            console.error('Error fetching or caching arm data:', error);
+            showToast(`获取注册码列表失败: ${error.message}`, 'error');
+            // If cache exists but is stale, maybe still use it? For now, we clear it.
+            allArms = []; // Reset or use stale data if preferred.
+            localStorage.removeItem(ARM_DATA_CACHE_KEY); // Clear potentially corrupt/stale cache
+            localStorage.removeItem(ARM_DATA_CACHE_TIMESTAMP_KEY);
+            // Optional: try to load stale cache if API fails
+            // if (cachedData) {
+            //    console.warn('Using stale arm data due to API fetch failure.');
+            //    allArms = JSON.parse(cachedData);
+            // }
+        }
+    }
 
     function showToast(message, type = 'info') { // type can be 'info', 'success', 'error'
         const toast = document.createElement('div');
@@ -30,6 +111,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const REGISTRATION_CODE_KEY = 'registrationCodeCache';
     const ALARM_CODE_KEY = 'alarmCodeCache';
 
+    await fetchAndCacheArmData(); // Wait for it if subsequent steps depend on allArms immediately
+
     // Populate Alarm Code Dropdown
     const alarmOptions = [
         { text: '电动车', value: 200 },
@@ -56,11 +139,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners for caching
     registrationCodeInput.addEventListener('input', () => {
+        // Existing localStorage saving logic for registrationCodeInput should still be here or integrated.
+        // For this subtask, we assume it's separate or we re-add it if it was removed.
+        // The click handler in displaySuggestions already saves to localStorage.
+        // This event listener is now primarily for triggering search.
         localStorage.setItem(REGISTRATION_CODE_KEY, registrationCodeInput.value);
+
+
+        const inputValue = registrationCodeInput.value.toLowerCase().trim();
+
+        if (inputValue.length < 1) { // Minimum characters to trigger search, e.g., 1 or 2
+            if (autocompleteList) {
+                autocompleteList.innerHTML = '';
+                autocompleteList.style.display = 'none';
+            }
+            return;
+        }
+
+        if (allArms && allArms.length > 0) {
+            const filteredArms = allArms.filter(arm => {
+                return arm.elevatorName.toLowerCase().includes(inputValue) ||
+                       arm.registerCode.toLowerCase().includes(inputValue);
+            });
+            displaySuggestions(filteredArms);
+        }
     });
 
     alarmCodeSelect.addEventListener('change', () => {
         localStorage.setItem(ALARM_CODE_KEY, alarmCodeSelect.value);
+    });
+
+    // Global click listener to hide autocomplete list
+    document.addEventListener('click', (e) => {
+        if (e.target !== registrationCodeInput && (!autocompleteList || e.target.parentNode !== autocompleteList)) {
+            if (autocompleteList) { // Check if autocompleteList exists
+              autocompleteList.style.display = 'none';
+            }
+        }
     });
 
     // Event Listener for Push Button

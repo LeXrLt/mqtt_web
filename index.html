@@ -10,9 +10,10 @@
     <div class="container">
         <h1>告警推送</h1>
 
-        <div class="form-group">
+        <div class="form-group" style="position: relative;">
             <label for="registrationCode">注册编码:</label>
-            <input type="text" id="registrationCode" name="registrationCode" placeholder="请输入大约20位文本">
+            <input type="text" id="registrationCode" name="registrationCode" placeholder="输入名称或编码搜索" autocomplete="off"> <!-- Added autocomplete="off" to prevent browser default suggestions -->
+            <div id="autocomplete-list"></div> <!-- Added autocomplete list container, removed .autocomplete-items as CSS targets ID -->
             <div class="error-message" id="registrationCodeError"></div>
         </div>
 
