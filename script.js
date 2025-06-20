@@ -9,9 +9,91 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pushButton = document.getElementById('pushButton');
     const registrationCodeError = document.getElementById('registrationCodeError');
     const autocompleteList = document.getElementById('autocomplete-list');
+    const samplingTimeDisplay = document.getElementById('samplingTimeDisplay');
     // Ensure this element exists in index.html as per plan step 4, or create it dynamically if preferred.
     // For this subtask, we assume it exists.
 
+    function formatShanghaiTime(unixTimestampInSeconds) {
+        if (!unixTimestampInSeconds && unixTimestampInSeconds !== 0) return 'N/A'; // Handle null or undefined
+        const date = new Date(unixTimestampInSeconds * 1000);
+        try {
+            const options = {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', // Keep seconds for accurate comparison
+                hour12: false,
+                timeZone: 'Asia/Shanghai'
+            };
+            const formatter = new Intl.DateTimeFormat('zh-CN-u-hc-h23', options); // Use 'sv-SE' for YYYY-MM-DD or build manually
+            const parts = formatter.formatToParts(date);
+            const map = new Map(parts.map(obj => [obj.type, obj.value]));
+
+            // Ensure parts are valid before constructing the string
+            const year = map.get('year');
+            const month = map.get('month');
+            const day = map.get('day');
+            const hour = map.get('hour');
+            const minute = map.get('minute');
+
+            if ([year, month, day, hour, minute].some(val => val === undefined)) {
+                console.error('Failed to format date parts for timestamp:', unixTimestampInSeconds);
+                return '日期格式错误';
+            }
+
+            return `${year}-${month}-${day} ${hour}:${minute}`;
+        } catch (e) {
+            console.error('Error formatting date for Shanghai:', e);
+            // Fallback or simpler formatting if Intl fails for some reason
+            const d = new Date(unixTimestampInSeconds * 1000); // browser local time, not ideal but a fallback
+            return `(本地) ${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        }
+    }
+
+    async function fetchAndDisplaySamplingTime(registerNumber) {
+        if (!samplingTimeDisplay) return; // Element guard
+
+        if (!registerNumber || registerNumber.length < 15 || registerNumber.length > 25) { // Use existing validation logic if possible
+            samplingTimeDisplay.textContent = '';
+            samplingTimeDisplay.className = 'sampling-time'; // Reset classes
+            return;
+        }
+
+        samplingTimeDisplay.textContent = '正在查询采样时间...'; // Loading state
+        samplingTimeDisplay.className = 'sampling-time';
+
+        try {
+            const response = await fetch(`https://mqtt-web.ti-lian.com/local/v1/arm/findRealTime?registerNumber=${encodeURIComponent(registerNumber)}`);
+            if (!response.ok) {
+                throw new Error(`网络响应错误: ${response.status}`);
+            }
+            const result = await response.json();
+
+            if (result.code === "200" && result.data && typeof result.data.samplingTime !== 'undefined') {
+                const samplingTimeUnix = parseInt(result.data.samplingTime, 10);
+                if (isNaN(samplingTimeUnix)) {
+                     throw new Error('无效的采样时间格式');
+                }
+
+                const formattedTime = formatShanghaiTime(samplingTimeUnix);
+                samplingTimeDisplay.textContent = `末次采样时间: ${formattedTime}`;
+
+                const twelveHoursInSeconds = 12 * 60 * 60;
+                const currentTimeInSeconds = Math.floor(Date.now() / 1000);
+
+                if ((currentTimeInSeconds - samplingTimeUnix) < twelveHoursInSeconds) {
+                    samplingTimeDisplay.classList.add('time-recent');
+                } else {
+                    samplingTimeDisplay.classList.add('time-stale');
+                }
+            } else {
+                throw new Error(result.msg || '无法获取有效的采样时间数据');
+            }
+        } catch (error) {
+            console.error('Error fetching sampling time:', error);
+            samplingTimeDisplay.textContent = `无法获取采样时间 (${error.message.substring(0,30)})`; // Show brief error
+            samplingTimeDisplay.className = 'sampling-time time-stale'; // Default to stale color on error
+            // showToast(`查询采样时间失败: ${error.message}`, 'error'); // Optional: also show a toast
+        }
+    }
 
     function displaySuggestions(suggestions) {
         if (!autocompleteList) return; // Guard if element not found
@@ -35,6 +117,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 localStorage.setItem(REGISTRATION_CODE_KEY, item.registerCode); // Explicitly save to cache
                 autocompleteList.innerHTML = '';
                 autocompleteList.style.display = 'none';
+                fetchAndDisplaySamplingTime(item.registerCode); // <<< ADD THIS CALL
                 registrationCodeInput.focus(); // Optional: keep focus on input
             });
             autocompleteList.appendChild(suggestionItem);
@@ -130,6 +213,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cachedRegistrationCode = localStorage.getItem(REGISTRATION_CODE_KEY);
     if (cachedRegistrationCode) {
         registrationCodeInput.value = cachedRegistrationCode;
+        if (cachedRegistrationCode.length >= 15 && cachedRegistrationCode.length <= 25) { // Validate before fetching
+            fetchAndDisplaySamplingTime(cachedRegistrationCode); // <<< ADD THIS CALL
+          }
     }
 
     const cachedAlarmCode = localStorage.getItem(ALARM_CODE_KEY);
@@ -144,15 +230,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         // The click handler in displaySuggestions already saves to localStorage.
         // This event listener is now primarily for triggering search.
         localStorage.setItem(REGISTRATION_CODE_KEY, registrationCodeInput.value);
-
-
         const inputValue = registrationCodeInput.value.toLowerCase().trim();
 
-        if (inputValue.length < 1) { // Minimum characters to trigger search, e.g., 1 or 2
+        if (inputValue.length === 0) { // If input is cleared
+            if (samplingTimeDisplay) {
+                samplingTimeDisplay.textContent = '';
+                samplingTimeDisplay.className = 'sampling-time';
+            }
+            // ... rest of autocomplete logic (hide list etc)
             if (autocompleteList) {
                 autocompleteList.innerHTML = '';
                 autocompleteList.style.display = 'none';
             }
+            return;
+        }
+
+        if (inputValue.length < 1) { // Minimum characters to trigger search, e.g., 1 or 2
+             if (autocompleteList) {
+                autocompleteList.innerHTML = '';
+                autocompleteList.style.display = 'none';
+            }
+            // Do not return here if you want to keep sampling time display logic on blur for partially typed valid codes
+            // but for autocomplete itself, it might be good to hide.
+            // For now, let's assume the main purpose of this block is autocomplete, so return if too short.
             return;
         }
 
@@ -162,6 +262,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                        arm.registerCode.toLowerCase().includes(inputValue);
             });
             displaySuggestions(filteredArms);
+        }
+    });
+
+    registrationCodeInput.addEventListener('blur', () => {
+        // Basic validation before fetching, can use a more robust one
+        if (registrationCodeInput.value && registrationCodeInput.value.length >= 15 && registrationCodeInput.value.length <= 25) {
+          fetchAndDisplaySamplingTime(registrationCodeInput.value);
+        } else {
+          // Clear if input is invalid on blur
+          if (samplingTimeDisplay) {
+              samplingTimeDisplay.textContent = '';
+              samplingTimeDisplay.className = 'sampling-time';
+          }
         }
     });
 

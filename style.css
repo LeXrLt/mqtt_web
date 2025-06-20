@@ -185,3 +185,19 @@ button:hover {
    For this subtask, we'll assume the HTML is or will be structured such that #autocomplete-list is positioned correctly relative to the input.
    The `top: 100%` assumes the input and autocomplete list are direct children of the relatively positioned .form-group.
 */
+
+/* Sampling Time Display Styles */
+.sampling-time {
+    margin-top: 8px; /* Space above the sampling time display */
+    font-size: 0.9em; /* Slightly smaller font */
+    min-height: 1.2em; /* Reserve space to prevent layout shifts when text appears/disappears */
+    font-weight: bold;
+}
+
+.sampling-time.time-recent {
+    color: #28a745; /* Green for recent time (matches success toast) */
+}
+
+.sampling-time.time-stale {
+    color: #dc3545; /* Red for stale time (matches error toast) */
+}
